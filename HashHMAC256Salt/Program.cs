@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace ConsoleApp1
@@ -10,31 +9,34 @@ namespace ConsoleApp1
     {
         static void Main(string[] args)
         {
-            CreatePasswordHash("1234", out string passHash, out string pasSalt);
+             var passwordResult = CreatePasswordHash("1234").Result;
 
-            Console.WriteLine("hash: " + passHash);
-            Console.WriteLine("salt: " + pasSalt);
+            Console.WriteLine("hash: " + passwordResult.passwordHash);
+            Console.WriteLine("salt: " + passwordResult.passwordSalt);
 
-            bool confirm = VerifyPasswordHash("1234", passHash, pasSalt);
+            bool confirm = VerifyPasswordHash("1234", passwordResult.passwordHash, passwordResult.passwordSalt).Result;
 
             Console.WriteLine(confirm);
         }
-
-        private static void CreatePasswordHash(string password, out string passwordHash, out string passwordSalt)
+        
+        private static async Task<(string passwordSalt, string passwordHash)> CreatePasswordHash(string password)
         {
             using (var hmac = new HMACSHA256())
             {
-                passwordSalt = Convert.ToBase64String(hmac.Key);
-                passwordHash = Convert.ToBase64String(hmac.ComputeHash(Convert.FromBase64String(password)));
+                return (Convert.ToBase64String(hmac.Key),
+                        Convert.ToBase64String(await hmac.ComputeHashAsync(
+                            new MemoryStream(Convert.FromBase64String(password)
+                        ))));
             }
         }
 
-        private static bool VerifyPasswordHash(string password, string storedHash, string storedSalt)
+        private static async Task<bool> VerifyPasswordHash(string password, string storedHash, string storedSalt)
         {
-            Console.WriteLine(password);
             using (var hmac = new HMACSHA256(Convert.FromBase64String(storedSalt)))
             {
-                string computedHash = Convert.ToBase64String(hmac.ComputeHash(Convert.FromBase64String(password)));
+                string computedHash = Convert.ToBase64String(await hmac.ComputeHashAsync(new MemoryStream(Convert.FromBase64String(password))));
+
+                Console.WriteLine(computedHash);
 
                 if (storedHash.Equals(computedHash)) return true;
             }
